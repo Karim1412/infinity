@@ -44,7 +44,6 @@ h1 .highlight{color:#ffc06a}
 .name{font-family:'Changa',sans-serif;font-size:27px;font-weight:800;margin:2px 0}
 .role{font-size:12px;color:#c9aeb0;margin-bottom:15px}
 .vote-btn{border:0;width:100%;padding:13px 12px;border-radius:13px;color:#21120e;background:linear-gradient(100deg,#ffd17c,#ff803c);font:800 16px 'Cairo',sans-serif;cursor:pointer;box-shadow:0 5px 0 #a63e25;transition:.15s}
-.vote-btn:disabled{cursor:not-allowed;filter:grayscale(.25)}
 .vote-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #a63e25}
 .vote-btn.wael{background:linear-gradient(100deg,#e7d7d3,#a995a4);box-shadow:0 5px 0 #66505e}
 .results{max-width:760px;margin:18px auto 0;padding:17px 20px;border-radius:17px;background:#1b121bd9;border:1px solid #ffffff18}
@@ -77,7 +76,7 @@ h1 .highlight{color:#ffc06a}
       <div class="colon">:</div>
       <div class="unit"><div class="digit" id="seconds">00</div><small>ثانية</small></div>
     </div>
-    <div class="deadline" id="deadline">موعد الحسم: اليوم على الساعة 13:30 بتوقيت تونس 🇹🇳</div>
+    <div class="deadline" id="deadline">موعد الحسم: اليوم على الساعة 14:00 بتوقيت تونس 🇹🇳</div>
   </section>
 
   <div class="section-title">🔥 <span>اختار فريقك</span> 🔥</div>
@@ -106,9 +105,8 @@ h1 .highlight{color:#ffc06a}
   </div>
   <div class="footer">صُنعت أجواء التحدّي… والباقي على بهاء ووائل 😏</div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const target = new Date('2026-11-26T13:30:00+01:00').getTime();
+const target = new Date('2026-11-26T14:00:00+01:00').getTime();
 const $ = id => document.getElementById(id);
 function tick(){
   let left = Math.max(0, target - Date.now());
@@ -120,143 +118,21 @@ function tick(){
 }
 tick(); setInterval(tick,1000);
 
-// ===== Supabase voting configuration =====
-// Replace these two values with your Supabase Project URL and anon/public key.
-const SUPABASE_URL = 'https://bpcnlnluhsjshdjefitb.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'sb_publishable_aQkUK9wvv3bNafTry8ArnA_sUEhFaXV';
-
-// Keep this ID for this challenge. Change it when you start a NEW voting session.
-const VOTING_SESSION_ID = 'bahaa-vs-wael-2026-11-26';
-
-const supabaseClient = (
-  SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
-  SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'
-) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-
-let voteCounts = { beha: 0, wael: 0 };
-let currentVote = null;
-let votingReady = false;
-
-function renderVotes() {
-  const total = voteCounts.beha + voteCounts.wael;
-  const behaPercent = total ? Math.round(voteCounts.beha / total * 100) : 50;
-  const waelPercent = 100 - behaPercent;
-
-  $('behaCount').textContent = voteCounts.beha;
-  $('waelCount').textContent = voteCounts.wael;
-  $('behaBar').style.width = behaPercent + '%';
-  $('waelBar').style.width = waelPercent + '%';
-
-  $('voteBeha').disabled = !votingReady || !!currentVote;
-  $('voteWael').disabled = !votingReady || !!currentVote;
-  $('voteBeha').style.opacity = (!votingReady || currentVote) ? '.55' : '1';
-  $('voteWael').style.opacity = (!votingReady || currentVote) ? '.55' : '1';
-
-  if (currentVote) {
-    $('voteNote').textContent = currentVote === 'beha'
-      ? 'لقد صوّت بالفعل لبهاء! لا يمكنك التصويت مرة أخرى في هذه الجولة.'
-      : 'لقد صوّت بالفعل لوائل! لا يمكنك التصويت مرة أخرى في هذه الجولة.';
-  }
+let votes = {beha:0,wael:0};
+try { const saved=JSON.parse(localStorage.getItem('submarineChallengeVotes')||'null'); if(saved) votes=saved; } catch(e){}
+function render(){
+  const total=votes.beha+votes.wael, bp=total?Math.round(votes.beha/total*100):50, wp=100-bp;
+  $('behaCount').textContent=votes.beha; $('waelCount').textContent=votes.wael;
+  $('behaBar').style.width=bp+'%'; $('waelBar').style.width=wp+'%';
 }
-
-async function refreshVoteCounts() {
-  if (!supabaseClient) return;
-  const { data, error } = await supabaseClient.rpc('get_vote_counts', {
-    p_session_id: VOTING_SESSION_ID
-  });
-
-  if (error) {
-    console.error('Could not load vote counts:', error);
-    return;
-  }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (row) {
-    voteCounts.beha = Number(row.beha || 0);
-    voteCounts.wael = Number(row.wael || 0);
-    renderVotes();
-  }
+function vote(side){
+  votes[side]++; try{localStorage.setItem('submarineChallengeVotes',JSON.stringify(votes));}catch(e){}
+  render(); $('voteNote').textContent='وصل صوتك! 🔥 التصويت محفوظ على هذا الجهاز.';
 }
-
-async function initializeVoting() {
-  if (!supabaseClient) {
-    $('voteNote').textContent = 'يلزم إعداد قاعدة البيانات أولاً لإتاحة التصويت.';
-    renderVotes();
-    return;
-  }
-
-  try {
-    // Anonymous identity persists in this browser unless its site data is cleared.
-    let { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError) throw sessionError;
-
-    if (!sessionData.session) {
-      const { error } = await supabaseClient.auth.signInAnonymously();
-      if (error) throw error;
-    }
-
-    const { data: previousVote, error: previousVoteError } =
-      await supabaseClient.rpc('get_my_vote', {
-        p_session_id: VOTING_SESSION_ID
-      });
-
-    if (previousVoteError) throw previousVoteError;
-
-    currentVote = previousVote || null;
-    votingReady = true;
-    await refreshVoteCounts();
-    renderVotes();
-
-    if (!currentVote) {
-      $('voteNote').textContent = 'صوّت مرة واحدة فقط في هذه الجولة. بالتوفيق! 🔥';
-    }
-  } catch (error) {
-    console.error(error);
-    $('voteNote').textContent = 'تعذّر الاتصال بنظام التصويت. حاول تحديث الصفحة لاحقاً.';
-  }
-}
-
-async function vote(choice) {
-  if (!votingReady || currentVote) return;
-
-  $('voteBeha').disabled = true;
-  $('voteWael').disabled = true;
-  $('voteNote').textContent = 'جارٍ تسجيل صوتك...';
-
-  const { data, error } = await supabaseClient.rpc('cast_vote', {
-    p_session_id: VOTING_SESSION_ID,
-    p_choice: choice
-  });
-
-  if (error) {
-    console.error(error);
-    $('voteNote').textContent = 'لم نتمكن من تسجيل صوتك. حاول مرة أخرى.';
-    renderVotes();
-    return;
-  }
-
-  if (data && data.already_voted) {
-    const { data: previousVote } = await supabaseClient.rpc('get_my_vote', {
-      p_session_id: VOTING_SESSION_ID
-    });
-    currentVote = previousVote || choice;
-  } else {
-    currentVote = choice;
-  }
-
-  await refreshVoteCounts();
-  renderVotes();
-}
-
-$('voteBeha').addEventListener('click', () => vote('beha'));
-$('voteWael').addEventListener('click', () => vote('wael'));
-$('donate').addEventListener('click', () => {
-  $('donateMessage').textContent = 'مش كان تبرعت لروحك خير 😂';
-});
-
-// Update shared results periodically so visitors see new votes.
-initializeVoting();
-setInterval(refreshVoteCounts, 10000);
+$('voteBeha').addEventListener('click',()=>vote('beha'));
+$('voteWael').addEventListener('click',()=>vote('wael'));
+$('donate').addEventListener('click',()=>{$('donateMessage').textContent='مش كان تبرعت لروحك خير 😂';});
+render();
 
 const holder=$('embers');
 for(let i=0;i<34;i++){
